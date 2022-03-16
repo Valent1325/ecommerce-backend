@@ -29,7 +29,7 @@ import { addToCartValidation, deleteItemFromCartValidation, updateCartValidation
 
 require('./lib/passport');
 
-const RedisStore = connectRedis(session);
+// const RedisStore = connectRedis(session);
 
 const app = express();
 
@@ -49,7 +49,7 @@ const start = async() => {
   app.use(express.json({ limit: '50mb' }));
   app.use(
     session({
-      store: new RedisStore({ client: redisStoreClient as any }),
+      // store: new RedisStore({ client: redisStoreClient as any }),
       secret: `${SESSION_SECRET}`,
       resave: false,
       saveUninitialized: false,
@@ -76,20 +76,20 @@ const start = async() => {
   app.get('/api/redis/cart', checkSession, async (req: Request, res: Response) => {
     try {
       const cartId = req.session['cartId'];
-      
+
       let cartItems: ICartItem[] = [];
 
       const cartList: { [key: string]: string } = await redisClient.hGetAll(`cart:${cartId}`);
-  
+
       if (!cartList) {
         return res.status(200).json({
           data: null,
         });
       }
-  
+
       for (const itemKey of Object.keys(cartList)) {
         const product = (await Product.findById(itemKey))?.toJSON();
-  
+
         if (product) {
           cartItems.push({
             quantity: parseInt(cartList[itemKey]),
@@ -97,7 +97,7 @@ const start = async() => {
           });
         }
       }
-      
+
       return res.status(200).json({
         data: cartItems?.length ? {
           items: cartItems,
@@ -114,20 +114,20 @@ const start = async() => {
     try {
       const cartId = req.session['cartId'];
       const { productId, quantity } = req.body;
-  
+
       const product = await Product.findById(productId);
-  
+
       if (!product) {
         return res.status(404).json({
           message: 'Продукт не найден'
         });
       }
-  
+
       let quantityInCart = (await redisClient.hGet(`cart:${cartId}`, productId)) || 0;
       quantityInCart = typeof quantityInCart === 'string' ? parseInt(quantityInCart) : quantityInCart;
-  
+
       await redisClient.hSet(`cart:${cartId}`, productId, quantityInCart + (quantity || 1));
-      
+
       return res.sendStatus(201);
     } catch(e) {
       return res.status(500).json({
@@ -141,25 +141,25 @@ const start = async() => {
       const cartId = req.session['cartId'];
       const { quantity } = req.body;
       const { productId } = req.params;
-  
+
       const product = await Product.findById(productId);
-  
+
       if (!product) {
         return res.status(404).json({
           message: 'Продукт не найден'
         });
       }
-  
+
       const productInCart = await redisClient.hGet(`cart:${cartId}`, productId);
-  
+
       if (!productInCart) {
         return res.status(404).json({
           message: 'Продукт отсутствует в корзине'
         });
       }
-  
+
       await redisClient.hSet(`cart:${cartId}`, productId, quantity);
-      
+
       return res.sendStatus(200);
     } catch(e) {
       return res.status(500).json({
@@ -171,19 +171,19 @@ const start = async() => {
   app.delete('/api/redis/cart/clear', checkSession, async (req: Request, res: Response) => {
     try {
       const cartId = req.session['cartId'];
-  
+
       const cartList: { [key: string]: string } = await redisClient.hGetAll(`cart:${cartId}`);
-  
+
       if (!cartList) {
         return res.status(200).json({
           data: null,
         });
       }
-  
+
       for (const itemKey of Object.keys(cartList)) {
         await redisClient.hDel(`cart:${cartId}`, itemKey);
       }
-  
+
       return res.sendStatus(204);
     } catch(e) {
       return res.status(500).json({
@@ -196,25 +196,25 @@ const start = async() => {
     try {
       const cartId = req.session['cartId'];
       const { productId } = req.params;
-  
+
       const product = await Product.findById(productId);
-  
+
       if (!product) {
         return res.status(404).json({
           message: 'Продукт не найден'
         });
       }
-  
+
       const productInCart = await redisClient.hGet(`cart:${cartId}`, productId);
-  
+
       if (!productInCart) {
         return res.status(404).json({
           message: 'Продукт отсутствует в корзине'
         });
       }
-  
+
       await redisClient.hDel(`cart:${cartId}`, productId);
-      
+
       return res.sendStatus(204);
     } catch(e) {
       return res.status(500).json({
